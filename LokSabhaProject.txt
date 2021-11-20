@@ -1,0 +1,278 @@
+India Lok Sabha Analysis: This Data is not so accurate so there can be difference between Seats vs actual contested Seats. 
+It's just for learning purpose
+
+Dataset: kaggle.com
+DBMS: MySQL 
+
+DATASET details:
+
+Using DESC keyword:
+
+mysql> Desc indiaLS ;
+   
+	  +-----------------------------------------+---------------+------+-----+---------+-------+
+          | Field                                   | Type          | Null | Key | Default | Extra |
+	  +-----------------------------------------+---------------+------+-----+---------+-------+
+	  | STATE                                   | varchar(25)   | NO   |     | NULL    |       |
+	  | CONSTITUENCY                            | varchar(25)   | NO   |     | NULL    |       |
+	  | NAME                                    | varchar(60)   | NO   |     | NULL    |       |
+	  | WINNER                                  | bit(1)        | NO   |     | NULL    |       |
+	  | PARTY                                   | varchar(10)   | NO   |     | NULL    |       |
+	  | SYMBOL                                  | varchar(40)   | YES  |     | NULL    |       |
+	  | GENDER                                  | varchar(6)    | YES  |     | NULL    |       |
+	  | CRIMINAL_CASES                          | int           | YES  |     | NULL    |       |
+	  | AGE                                     | int           | YES  |     | NULL    |       |
+	  | CATEGORY                                | varchar(7)    | YES  |     | NULL    |       |
+	  | EDUCATION                               | varchar(21)   | YES  |     | NULL    |       |
+	  | ASSETS                                  | varchar(15)   | YES  |     | NULL    |       |
+	  | LIABILITIES                             | varchar(15)   | YES  |     | NULL    |       |
+	  | GENERAL_VOTES                           | int           | NO   |     | NULL    |       |
+	  | POSTAL_VOTES                            | int           | NO   |     | NULL    |       |
+	  | TOTAL_VOTES                             | int           | NO   |     | NULL    |       |
+	  | OVER_TOTAL_ELECTORS_IN_CONSTITUENCY     | decimal(11,9) | NO   |     | NULL    |       |
+	  | OVER_TOTAL_VOTES_POLLED_IN_CONSTITUENCY | decimal(11,9) | NO   |     | NULL    |       |
+	  | TOTAL_ELECTORS                          | int           | NO   |     | NULL    |       |
+	  +-----------------------------------------+---------------+------+-----+---------+-------+
+
+
+
+Analysis:
+
+
+#1: Top 7 States with Maximum Seats 
+
+	mysql> SELECT state, count(*) AS Seats 
+	       FROM indiaLS 
+	       GROUP BY state 
+	       ORDER BY Seats DESC
+	       LIMIT 7;
+		+----------------+-------+
+ 		| state          | Seats |
+		+----------------+-------+
+		|  Uttar Pradesh |   274 |
+		| Bihar          |   244 |
+		| Tamil Nadu     |   217 |
+		| West Bengal    |   193 |
+		| Maharashtra    |   192 |
+		| Andhra Pradesh |   121 |
+		| Madhya Pradesh |   103 |
+		+----------------+-------+
+
+
+
+#2: overall Seats contested vs Won by each party (limiting to top 7 parties):
+
+DMK has won all seats where it contested 
+
+	mysql> SELECT Party,
+		      count(party) as `Seats Contested`,
+                      sum(winner) as `Seats Won`,
+                      ROUND( (sum(winner)*1.00 / count(party)*100),2) as `Winning Percent`
+ 		FROM indiaLS 
+		GROUP BY party 
+		ORDER BY sum(winner) DESC
+		LIMIT 7;
+		+-------+-----------------+-----------+-----------------+
+		| Party | Seats Contested | Seats Won | Winning Percent |
+		+-------+-----------------+-----------+-----------------+
+		| BJP   |             420 |       300 |           71.43 |
+		| INC   |             413 |        52 |           12.59 |
+		| DMK   |              23 |        23 |          100.00 |
+		| YSRCP |              25 |        22 |           88.00 |
+		| AITC  |              47 |        22 |           46.81 |
+		| SHS   |              26 |        18 |           69.23 |
+		| JD(U) |              18 |        16 |           88.89 |
+		+-------+-----------------+-----------+-----------------+
+
+
+#3: Average Age of contestant Party Wise:
+
+
+	mysql> SELECT party,
+		      avg(age) as `Average Age`
+		FROM indiaLS 
+	        GROUP BY party 
+		ORDER BY avg(age) desc
+		LIMIT 7;
+		+--------+-------------+
+		| party  | Average Age |   
+		+--------+-------------+
+		| SAD(M) |     74.0000 |
+		| JKN    |     73.0000 |
+		| VPI    |     70.0000 |
+		| BOPF   |     69.0000 |
+		| NAWPP  |     68.0000 |
+		| ravp   |     68.0000 |
+		| KEC    |     68.0000 |
+		+--------+-------------+
+SAD(M) & JKN had contestant(s) with high average age but seems this is not giving proper idea about age.
+Let's deep dive on it. Let's Fetch max, min age of the party member and
+no.of contestants from each party
+
+	mysql>   SELECT party,
+			avg(age) as `Average Age`,
+			max(age), 
+			min(age), 
+			count(party) as 'No. of contestant'
+	         FROM indiaLS 
+                 GROUP BY party
+		 ORDER BY avg(age) DESC
+		 LIMIT 7;
+	+--------+-------------+----------+----------+-------------------+
+	| party  | Average Age | max(age) | min(age) | No. of contestant |
+	+--------+-------------+----------+----------+-------------------+
+	| SAD(M) |     74.0000 |       74 |       74 |                1  |
+	| JKN    |     73.0000 |       83 |       65 |                3  |
+	| VPI    |     70.0000 |       70 |       70 |                1	 |
+	| BOPF   |     69.0000 |       69 |       69 |                1  |
+	| NAWPP  |     68.0000 |       68 |       68 |                1  |
+	| ravp   |     68.0000 |       68 |       68 |                1  |
+	| KEC    |     68.0000 |       68 |       68 |                1  |
+	+--------+-------------+----------+----------+-------------------+
+
+Since this is not a good indicator of age to take of parties with very less candidates, we will apply a filter for party who has atleast 12 candidates.
+
+	mysql> SELECT party,
+		      round(avg(age),2) as `Average Age`,
+		      max(age),
+		      min(age),
+ 		      count(party) as `No. Of Candidates`
+ 		 FROM indiaLS 
+ 		 GROUP BY party
+		 HAVING count(party)>=12
+		 ORDER BY avg(age) DESC
+		 LIMIT 7;
+	+--------+-------------+----------+----------+-------------------+
+	| party  | Average Age | max(age) | min(age) | No. Of Candidates |
+	+--------+-------------+----------+----------+-------------------+
+	| JD(U)  |       57.78 |       73 |       33 |                18 |
+	| SP     |       56.67 |       86 |       29 |                39 |
+	| DMK    |       55.83 |       77 |       41 |                23 |
+	| TDP    |       55.80 |       75 |       28 |                25 |
+	| CPI(M) |       55.12 |       77 |       26 |               100 |
+	| INC    |       55.03 |       81 |       26 |               413 |
+	| BJP    |       54.58 |       78 |       28 |               420 |
+	+--------+-------------+----------+----------+-------------------+
+
+
+#4 Gender Ratio in top 5 party (according to #1 solution):
+
+	mysql>  SELECT party,
+ 		       gender, 
+		       COUNT(party)
+		FROM indiaLS 
+		WHERE party in ('BJP', 'INC', 'YSRCP', 'DMK','AITC') 
+		GROUP BY party,Gender
+		ORDER BY party 
+		LIMIT 10;
+
+		+-------+--------+--------------+
+		| party | gender | count(party) | 
+		+-------+--------+--------------+
+		| AITC  | FEMALE |           19 |
+		| AITC  | MALE   |           28 |
+		| BJP   | FEMALE |           54 |
+		| BJP   | MALE   |          366 |
+		| DMK   | FEMALE |            2 |
+		| DMK   | MALE   |           21 |
+		| INC   | FEMALE |           54 |
+		| INC   | MALE   |          359 |
+		| YSRCP | FEMALE |            4 |
+		| YSRCP | MALE   |           21 |
+		+-------+--------+--------------+
+
+Let's make it Pivot for better visualization using CASE WHEN statement,
+		
+	mysql>   WITH t1 AS 
+			(SELECT party,
+          			gender,
+           			COUNT(party) as c
+    			 FROM indiaLS 
+    			 WHERE party in ('BJP', 'INC', 'YSRCP', 'DMK','AITC')
+    			 GROUP BY party,Gender
+    			 ORDER BY party
+    			 LIMIT 10)
+
+    		 SELECT party,
+    			 SUM(CASE WHEN t1.gender='male' THEN c else 0 END) AS 'Male' ,
+    			 SUM(CASE WHEN t1.gender='female' THEN c else 0 END) AS 'Female'
+     		 FROM t1
+    		 GROUP BY party;
+
+			+-------+------+--------+
+			| party | Male | Female |
+			+-------+------+--------+
+			| AITC  |   28 |     19 |
+			| BJP   |  366 |     54 |
+			| DMK   |    21|      2 |
+			| INC   |   359|     54 |
+			| YSRCP |    21|      4 |
+			+-------+------+--------+
+
+
+
+
+
+#5 Votes by party though out India:
+
+       mysql> SELECT party,
+ 		     COUNT(PARTY) AS Seats_contested,
+		     SUM(total_votes) as Total_votes,
+		     ROUND(SUM(total_votes)/COUNT(party)) as Votes_Per_Seat 
+	      FROM indials 
+	      GROUP BY party 
+	      ORDER BY 3 DESC   -- SUM(total_votes)
+	      LIMIT 7; 
+
+
+
+	+--------+-----------------+-------------+----------------+
+	| party  | Seats_contested | Total_votes | Votes_Per_Seat |
+	+--------+-----------------+-------------+----------------+
+	| BJP    |             420 |   228938556 |         545092 |
+	| INC    |             413 |   119418722 |         289149 |
+	| AITC   |              47 |    24832104 |         528343 |
+	| BSP    |             163 |    20808194 |         127658 |
+	| SP     |              39 |    15616282 |         400417 |
+	| YSRCP  |              25 |    15537006 |         621480 |
+	| CPI(M) |             100 |    14180942 |         141809 |
+	+--------+-----------------+-------------+----------------+
+
+
+
+
+
+#6 No.of Candidates with criminal cases by Party
+	mysql> SELECT PARTY, 
+                      COUNT(PARTY),
+                      COUNT( 
+       				IF(criminal_cases=0, null,criminal_cases)
+			   ) as Candidates_with_Cases,
+                      COUNT( 
+       			      IF(criminal_cases=0, null,criminal_cases)
+			   ) * 100
+                                    / COUNT(PARTY) AS "PercentByCandidates"
+		FROM indials
+		GROUP BY party
+		ORDER BY 3 desc
+		LIMIT 10 ;
+
+
+
+		+--------+--------------+-----------------------+---------------------+
+		| PARTY  | COUNT(PARTY) | Candidates_with_Cases | PercentByCandidates |
+		+--------+--------------+-----------------------+---------------------+
+		| BJP    |          420 |                   172 |	      40.9524 |
+		| INC    |          413 |                   161 |	      38.9831 |
+		| BSP    |          163 |                    52 | 	      31.9018 |
+		| IND    |          201 |                    50 | 	      24.8756 |
+		| CPI(M) |          100 |                    50 |	      50.0000 |
+		| SP     |           39 |                    21 |	      53.8462 |
+		| VBA    |           47 |                    20 |   	      42.5532 |
+		| RJD    |           21 |                    18 | 	      85.7143 |
+		| SHS    |           26 |                    16 |	      61.5385 |
+		| AITC   |           47 |                    16 | 	      34.0426 |
+		+--------+--------------+-----------------------+---------------------+
+
+
+
