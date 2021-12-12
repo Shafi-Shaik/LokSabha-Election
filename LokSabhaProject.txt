@@ -1,12 +1,17 @@
 India Lok Sabha Analysis: This Data is not so accurate so there can be difference between Seats vs actual contested Seats. 
-It's just for learning purpose
+It's just for learning purpose. 
+The SQL topics used in this analysis:
+	1. Aggregate Functions such as sum(), avg(), max(),min(),count() etc
+	2. GROUP BY - Having 
+	3. CTE (Prefer CTE over sub-queries for readability)
+	4.Pivot the data (rows to columns)
+	
+I do know joins & window functions but did not use as it is just a single dataset and were not necessary to implement in this analysis.
 
 Dataset: kaggle.com
 DBMS: MySQL 
 
-DATASET details:
-
-Using DESC keyword:
+DATASET details: Using DESC keyword:
 
 mysql> Desc indiaLS ;
    
@@ -39,7 +44,7 @@ mysql> Desc indiaLS ;
 Analysis:
 
 
-#1: Top 7 States with Maximum Seats 
+#1: Top 7 States with Maximum Lok Sabha Seats 
 
 	mysql> SELECT state, count(*) AS Seats 
 	       FROM indiaLS 
@@ -273,6 +278,96 @@ Let's make it Pivot for better visualization using CASE WHEN statement,
 		| SHS    |           26 |                    16 |	      61.5385 |
 		| AITC   |           47 |                    16 | 	      34.0426 |
 		+--------+--------------+-----------------------+---------------------+
+
+#7 Candidates Education Detials: Interestingly There were more candidates with atleast graduation.
+
+    mysql> SELECT Education,count(*) 
+           FROM indials 
+           GROUP BY education
+           ORDER BY 2 desc;
+		+-----------------------+----------+
+		| Education             | count(*) |
+		+-----------------------+----------+
+		| Post Graduate         |      503 |
+		| Graduate              |      441 |
+		| Graduate Professional |      336 |
+		| 12th Pass             |      256 |
+		| NULL                  |      245 |
+		| 10th Pass             |      196 |
+		| 8th Pass              |       78 |
+		| Doctorate             |       73 |
+		| Others                |       50 |
+		| Literate              |       30 |
+		| 5th Pass              |       28 |
+		| Not Available         |       22 |
+		| Illiterate            |        5 |
+		+-----------------------+----------+
+
+
+
+#8 Category(Caste) wise :
+
+	mysql> SELECT category, count(*) 
+	       FROM indials 
+               GROUP BY category 
+               ORDER BY 2 desc;
+		+----------+----------+
+		| category | count(*) |
+		+----------+----------+
+		| GENERAL  |     1392 |
+		| SC       |      383 |
+		| NULL     |      245 |
+		| ST       |      243 |
+                +----------+----------+
+
+Let's bifurcate this among Party, 
+	mysql>  SELECT party, category, count(*) 
+		FROM indials 
+		GROUP BY party,category 
+		ORDER BY 3 desc, party, category;
+		+------------+----------+----------+
+		| party      | category | count(*) |
+		+------------+----------+----------+
+		| BJP        | GENERAL  |      304 |
+		| INC        | GENERAL  |      291 |
+		| NOTA       | NULL     |      245 |
+		| IND        | GENERAL  |      136 |
+		| BSP        | GENERAL  |       80 |
+		| CPI(M)     | GENERAL  |       73 |
+		| INC        | SC       |       73 |
+		| BJP        | SC       |       62 |
+		| BSP        | SC       |       61
+
+
+but this is not what we wanted, so let's do other thing. PIVOTING the data
+
+
+
+
+with t1 as 
+      (select party, category,count(*) as cnt
+       from indials 
+       group by category, party 
+       order by 3 desc)
+select party,sum(case when category="General" then cnt else 0 END) as "General", 
+	     sum(case when category="SC" then cnt else 0 END) as "SC",
+             sum(case when category="ST" then cnt else 0 END) as "ST",
+             sum(case when category is null then cnt else 0 END) as "NA" 
+  from t1 
+group by party
+limit 7;
+
+		+--------+---------+------+------+------+
+		| party  | General | SC   | ST   | NA   |
+		+--------+---------+------+------+------+
+		| BJP    |     304 |   62 |   54 |    0 |
+		| INC    |     291 |   73 |   49 |    0 |
+		| NOTA   |       0 |    0 |    0 |  245 |
+		| IND    |     136 |   35 |   30 |    0 |
+		| BSP    |      80 |   61 |   22 |    0 |
+		| CPI(M) |      73 |   16 |   11 |    0 |
+		| VBA    |      35 |    8 |    4 |    0 |
+		+--------+---------+------+------+------+
 
 
 
